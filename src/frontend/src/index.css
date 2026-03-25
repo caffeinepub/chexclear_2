@@ -1,0 +1,122 @@
+@import url("https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Fira+Code:wght@300;400;500&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --radius: 0.625rem;
+    /* Dark SaaS palette — OKLCH L C H */
+    --background: 0.09 0.015 260;
+    --foreground: 0.85 0.015 255;
+    --card: 0.13 0.018 260;
+    --card-foreground: 0.85 0.015 255;
+    --popover: 0.12 0.018 260;
+    --popover-foreground: 0.85 0.015 255;
+    --primary: 0.6 0.16 260;
+    --primary-foreground: 0.95 0.005 260;
+    --secondary: 0.2 0.025 260;
+    --secondary-foreground: 0.85 0.015 255;
+    --muted: 0.17 0.02 260;
+    --muted-foreground: 0.47 0.04 255;
+    --accent: 0.2 0.025 260;
+    --accent-foreground: 0.85 0.015 255;
+    --destructive: 0.6 0.2 25;
+    --destructive-foreground: 0.95 0.005 260;
+    --border: 0.2 0.025 260;
+    --input: 0.12 0.018 260;
+    --ring: 0.6 0.16 260;
+    --success: 0.77 0.15 170;
+    --warning: 0.78 0.17 80;
+    --dim: 0.27 0.03 260;
+    /* charts */
+    --chart-1: 0.6 0.16 260;
+    --chart-2: 0.77 0.15 170;
+    --chart-3: 0.78 0.17 80;
+    --chart-4: 0.6 0.2 25;
+    --chart-5: 0.47 0.04 255;
+    /* sidebar */
+    --sidebar: 0.11 0.016 260;
+    --sidebar-foreground: 0.85 0.015 255;
+    --sidebar-primary: 0.6 0.16 260;
+    --sidebar-primary-foreground: 0.95 0.005 260;
+    --sidebar-accent: 0.2 0.025 260;
+    --sidebar-accent-foreground: 0.85 0.015 255;
+    --sidebar-border: 0.2 0.025 260;
+    --sidebar-ring: 0.6 0.16 260;
+  }
+
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Sora", sans-serif;
+    margin: 0;
+  }
+
+  ::selection {
+    background: oklch(0.6 0.16 260 / 0.2);
+  }
+}
+
+@layer utilities {
+  .font-mono-cc {
+    font-family: "Fira Code", monospace;
+  }
+}
+
+@keyframes chexspin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.3s ease both;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.25s ease both;
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.27 0.03 260) transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: oklch(0.27 0.03 260);
+  border-radius: 2px;
+}
