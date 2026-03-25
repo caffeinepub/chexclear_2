@@ -11,7 +11,9 @@ import {
   Copy,
   FileText,
   Loader2,
+  LogOut,
   Mail,
+  Pencil,
   Plus,
   Search,
   Settings as SettingsIcon,
@@ -24,6 +26,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Client, ClientInput, Letter, LetterInput } from "./backend.d";
 import { useActor } from "./hooks/useActor";
+import { useInternetIdentity } from "./hooks/useInternetIdentity";
 
 // ─── Window Storage Declaration ───────────────────────────────────────────────
 declare global {
@@ -422,6 +425,305 @@ function NewClientPanel({ open, onClose, onSave }: NewClientPanelProps) {
 }
 
 // ─── Letters Section Component ───────────────────────────────────────────────
+
+// ─── Edit Client Modal ────────────────────────────────────────────────────────
+interface EditClientModalProps {
+  open: boolean;
+  client: import("./backend.d").Client | undefined;
+  onClose: () => void;
+  onSave: (updated: import("./backend.d").Client) => void;
+}
+
+function EditClientModal({
+  open,
+  client,
+  onClose,
+  onSave,
+}: EditClientModalProps) {
+  const [form, setForm] = useState({
+    name: "",
+    address: "",
+    cityStateZip: "",
+    dob: "",
+    ssnLast4: "",
+    phone: "",
+    reportText: "",
+    status: "new" as StatusKey,
+  });
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    if (open && client) {
+      setForm({
+        name: client.name,
+        address: client.address,
+        cityStateZip: client.cityStateZip,
+        dob: client.dob,
+        ssnLast4: client.ssnLast4,
+        phone: client.phone,
+        reportText: client.reportText,
+        status: client.status as StatusKey,
+      });
+      setErr("");
+    }
+  }, [open, client]);
+
+  const handleSave = () => {
+    if (!form.name.trim()) {
+      setErr("Client name is required.");
+      return;
+    }
+    if (!client) return;
+    onSave({ ...client, ...form, name: form.name.trim() });
+  };
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-black/50 z-40"
+            onClick={onClose}
+          />
+          <motion.div
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", damping: 28, stiffness: 300 }}
+            className="fixed right-0 top-0 h-full w-full max-w-md z-50 flex flex-col"
+            style={{
+              background: "oklch(var(--popover))",
+              borderLeft: "1px solid oklch(var(--border))",
+            }}
+            data-ocid="edit_client.panel"
+          >
+            <div className="flex items-center justify-between px-6 py-5 border-b border-border">
+              <div>
+                <h2 className="text-base font-semibold text-foreground">
+                  Edit Client
+                </h2>
+                <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                  Update client information
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-8 h-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                data-ocid="edit_client.close_button"
+              >
+                ✕
+              </button>
+            </div>
+
+            <ScrollArea className="flex-1 px-6 py-5 scrollbar-thin">
+              <div className="space-y-5">
+                {err && (
+                  <p className="text-xs text-destructive font-mono bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+                    {err}
+                  </p>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <label
+                      htmlFor="ec-name"
+                      className="block text-[11px] font-mono text-muted-foreground mb-1.5 tracking-wide uppercase"
+                    >
+                      Full Name <span className="text-destructive">*</span>
+                    </label>
+                    <Input
+                      id="ec-name"
+                      value={form.name}
+                      onChange={(e) =>
+                        setForm((p) => ({ ...p, name: e.target.value }))
+                      }
+                      placeholder="John Doe"
+                      className="bg-input border-border text-foreground placeholder:text-muted-foreground font-mono text-sm"
+                      data-ocid="edit_client.input"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="ec-address"
+                      className="block text-[11px] font-mono text-muted-foreground mb-1.5 tracking-wide uppercase"
+                    >
+                      Street Address
+                    </label>
+                    <Input
+                      id="ec-address"
+                      value={form.address}
+                      onChange={(e) =>
+                        setForm((p) => ({ ...p, address: e.target.value }))
+                      }
+                      placeholder="123 Main St"
+                      className="bg-input border-border text-foreground placeholder:text-muted-foreground font-mono text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="ec-city"
+                      className="block text-[11px] font-mono text-muted-foreground mb-1.5 tracking-wide uppercase"
+                    >
+                      City, State ZIP
+                    </label>
+                    <Input
+                      id="ec-city"
+                      value={form.cityStateZip}
+                      onChange={(e) =>
+                        setForm((p) => ({ ...p, cityStateZip: e.target.value }))
+                      }
+                      placeholder="Houston, TX 77001"
+                      className="bg-input border-border text-foreground placeholder:text-muted-foreground font-mono text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="ec-dob"
+                      className="block text-[11px] font-mono text-muted-foreground mb-1.5 tracking-wide uppercase"
+                    >
+                      Date of Birth
+                    </label>
+                    <Input
+                      id="ec-dob"
+                      value={form.dob}
+                      onChange={(e) =>
+                        setForm((p) => ({ ...p, dob: e.target.value }))
+                      }
+                      placeholder="01/15/1990"
+                      className="bg-input border-border text-foreground placeholder:text-muted-foreground font-mono text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="ec-ssn"
+                      className="block text-[11px] font-mono text-muted-foreground mb-1.5 tracking-wide uppercase"
+                    >
+                      SSN Last 4
+                    </label>
+                    <Input
+                      id="ec-ssn"
+                      value={form.ssnLast4}
+                      onChange={(e) =>
+                        setForm((p) => ({
+                          ...p,
+                          ssnLast4: e.target.value
+                            .replace(/\D/g, "")
+                            .slice(0, 4),
+                        }))
+                      }
+                      placeholder="1234"
+                      maxLength={4}
+                      className="bg-input border-border text-foreground placeholder:text-muted-foreground font-mono text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="ec-phone"
+                      className="block text-[11px] font-mono text-muted-foreground mb-1.5 tracking-wide uppercase"
+                    >
+                      Phone
+                    </label>
+                    <Input
+                      id="ec-phone"
+                      value={form.phone}
+                      onChange={(e) =>
+                        setForm((p) => ({ ...p, phone: e.target.value }))
+                      }
+                      placeholder="(713) 555-0100"
+                      className="bg-input border-border text-foreground placeholder:text-muted-foreground font-mono text-sm"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label
+                      htmlFor="ec-status"
+                      className="block text-[11px] font-mono text-muted-foreground mb-1.5 tracking-wide uppercase"
+                    >
+                      Status
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {(
+                        Object.entries(STATUS_CONFIG) as [
+                          StatusKey,
+                          { label: string },
+                        ][]
+                      ).map(([key, meta]) => (
+                        <button
+                          type="button"
+                          key={key}
+                          onClick={() =>
+                            setForm((p) => ({ ...p, status: key }))
+                          }
+                          className={`px-3 py-1.5 rounded-lg border text-[11px] font-mono font-medium transition-all duration-150 ${
+                            form.status === key
+                              ? key === "new"
+                                ? "border-muted-foreground/40 bg-muted text-foreground"
+                                : key === "letter_sent"
+                                  ? "border-primary/50 bg-primary/15 text-primary"
+                                  : key === "waiting"
+                                    ? "border-warning/50 bg-warning/10 text-warning"
+                                    : key === "resolved"
+                                      ? "border-success/50 bg-success/10 text-success"
+                                      : "border-destructive/50 bg-destructive/10 text-destructive"
+                              : "border-border text-muted-foreground hover:border-border/80 hover:text-foreground"
+                          }`}
+                          data-ocid={`edit_client.status.${key}.toggle`}
+                        >
+                          {meta.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="col-span-2">
+                    <label
+                      htmlFor="ec-report"
+                      className="block text-[11px] font-mono text-muted-foreground mb-1.5 tracking-wide uppercase"
+                    >
+                      ChexSystems Report
+                    </label>
+                    <Textarea
+                      id="ec-report"
+                      value={form.reportText}
+                      onChange={(e) =>
+                        setForm((p) => ({ ...p, reportText: e.target.value }))
+                      }
+                      placeholder="Paste the ChexSystems report text here..."
+                      className="bg-input border-border text-foreground font-mono text-xs leading-relaxed resize-y min-h-[120px] placeholder:text-muted-foreground"
+                      data-ocid="edit_client.textarea"
+                    />
+                  </div>
+                </div>
+              </div>
+            </ScrollArea>
+
+            <div className="px-6 py-4 border-t border-border flex items-center justify-end gap-3">
+              <Button
+                variant="ghost"
+                onClick={onClose}
+                className="font-mono text-sm"
+                data-ocid="edit_client.cancel_button"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSave}
+                className="font-mono text-sm"
+                data-ocid="edit_client.save_button"
+              >
+                Save Changes
+              </Button>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
 interface LettersSectionProps {
   letters: Letter[];
   generating: boolean;
@@ -647,6 +949,8 @@ function LettersSection({
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function ChexClear() {
   const { actor } = useActor();
+  const { identity, isInitializing, login, clear } = useInternetIdentity();
+
   const [view, setView] = useState<View>("list");
   const [clients, setClients] = useState<Client[]>([]);
   const [ready, setReady] = useState(false);
@@ -654,6 +958,7 @@ export default function ChexClear() {
   const [err, setErr] = useState("");
   const [generating, setGenerating] = useState(false);
   const [showNewPanel, setShowNewPanel] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [search, setSearch] = useState("");
 
   // Per-client detail state
@@ -785,6 +1090,24 @@ export default function ChexClear() {
       toast.error("Failed to save client.");
     }
   };
+
+  // ── Handle edit modal save ──
+  const handleEditSave = useCallback(
+    async (updated: import("./backend.d").Client) => {
+      if (!actor) return;
+      setClients((prev) =>
+        prev.map((c) => (c.id === updated.id ? updated : c)),
+      );
+      setShowEditModal(false);
+      try {
+        await actor.updateClient(updated);
+        toast.success("Client updated");
+      } catch {
+        toast.error("Failed to update client.");
+      }
+    },
+    [actor],
+  );
 
   // ── Update client (debounced for text fields) ──
   const updateActive = useCallback(
@@ -1004,6 +1327,43 @@ export default function ChexClear() {
     { key: "settings", icon: SettingsIcon, label: "Settings" },
   ];
 
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!identity) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-8 px-4 bg-background">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-2">
+            <FileText className="w-7 h-7 text-primary" />
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight font-head text-foreground">
+            CHEXCLEAR
+          </h1>
+          <p className="text-sm text-muted-foreground font-mono">
+            ChexSystems Dispute Letter Manager
+          </p>
+        </div>
+        <Button
+          onClick={login}
+          className="bg-primary text-primary-foreground hover:bg-primary/90 font-head text-sm font-semibold px-8 py-5 rounded-xl gap-2"
+          data-ocid="login.primary_button"
+        >
+          Login with Internet Identity
+        </Button>
+        <p className="text-[11px] text-muted-foreground/50 font-mono">
+          Secured by Internet Identity
+        </p>
+        <Toaster position="top-right" theme="dark" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background flex" data-ocid="app.page">
       <Toaster position="top-right" theme="dark" />
@@ -1124,6 +1484,16 @@ export default function ChexClear() {
                 New Client
               </Button>
             )}
+            <button
+              type="button"
+              onClick={clear}
+              className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-md hover:bg-accent"
+              data-ocid="auth.logout.button"
+              title="Sign out"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              Sign Out
+            </button>
           </div>
         </header>
 
@@ -1423,15 +1793,26 @@ export default function ChexClear() {
                         </div>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleDeleteClient}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-destructive/25 text-destructive hover:bg-destructive/10 transition-colors text-xs font-mono flex-shrink-0"
-                      data-ocid="detail.delete_button"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                      Delete
-                    </button>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setShowEditModal(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors text-xs font-mono"
+                        data-ocid="detail.edit_button"
+                      >
+                        <Pencil className="w-3 h-3" />
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDeleteClient}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-destructive/25 text-destructive hover:bg-destructive/10 transition-colors text-xs font-mono"
+                        data-ocid="detail.delete_button"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -1657,6 +2038,12 @@ export default function ChexClear() {
         open={showNewPanel}
         onClose={() => setShowNewPanel(false)}
         onSave={handleNewClientSave}
+      />
+      <EditClientModal
+        open={showEditModal}
+        client={clients.find((c) => c.id === activeId)}
+        onClose={() => setShowEditModal(false)}
+        onSave={handleEditSave}
       />
     </div>
   );
