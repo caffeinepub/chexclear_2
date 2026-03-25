@@ -1,32 +1,33 @@
 # ChexClear
 
 ## Current State
-Each Client has a single `letter: string` field. No notes field. No multi-letter support.
+Fully client-side React app. All data (clients, letters, notes) is stored via `window.storage` (Caffeine's key-value storage). If `window.storage` is unavailable, saves fail silently with a toast error. The backend canister (`main.mo`) is empty. `backend.d.ts` has no exported functions.
 
 ## Requested Changes (Diff)
 
 ### Add
-- `Letter` type: id, title, text, createdAt, status (draft/sent/printed)
-- `letters: Letter[]` and `notes: string` on Client
-- Letters list on Client Detail: cards with title, date, status badge
-- Letter detail view: inline edit title/text, copy, status change
-- New Blank Letter button
-- AI generation splits on `====` separators into multiple Letter docs (generic title: Dispute Letter X of N - date)
-- Notes textarea on Client Detail, auto-saving
+- Motoko backend with stable variables storing clients, letters, and notes as individual records keyed by unique ID
+- Backend CRUD functions: createClient, getClients, updateClient, deleteClient, createLetter, getLettersByClient, updateLetter, deleteLetter, updateNotes, getNotesByClient
+- Frontend wires all data operations to backend actor calls instead of window.storage
+- One-time toast notice if window.storage is unavailable (limited storage fallback notice)
 
 ### Modify
-- Client interface: remove `letter`, add `letters`, `notes`
-- loadClients: normalize old data (letters = client.letters ?? [], notes = client.notes ?? '')
-- NewClientPanel: init letters:[], notes:''
-- handleGenerateLetter: split and save as Letter[]
+- `saveClients` / `loadClients` / `initStorage` replaced by backend actor calls
+- On app load, fetch all clients from backend; letters and notes fetched per-client on detail view
+- All create/update/delete operations call the corresponding backend function
+- Settings (API key, model) remain in window.storage or localStorage as user preferences (not critical data)
 
 ### Remove
-- Single letter textarea UI and letter field
+- `storageOk` module-level flag
+- `window.storage` dependency for client data (kept only for non-critical settings)
 
 ## Implementation Plan
-1. Update types
-2. Update storage helpers to normalize
-3. Update NewClientPanel
-4. Update handleGenerateLetter to split + save
-5. Replace letter UI with letters list + detail view
-6. Add notes section
+1. Generate Motoko with stable HashMap/TrieMap records for Client, Letter, Note
+2. Expose query/update functions for all CRUD operations
+3. Update App.tsx: replace storage helpers with actor calls
+4. On app init: call `getClients()` from backend; show spinner while loading
+5. On create/update/delete: call corresponding backend mutation, update local state on success
+6. Letters: fetched via `getLettersByClient(clientId)` when opening client detail; saved/updated via backend
+7. Notes: fetched and updated via backend per client
+8. Settings (apiKey, model): keep using window.storage/localStorage, not critical
+9. Show one-time banner/toast if window.storage is unavailable (for settings only)

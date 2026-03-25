@@ -1,4 +1,3 @@
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -23,6 +22,8 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import type { Client, ClientInput, Letter, LetterInput } from "./backend.d";
+import { useActor } from "./hooks/useActor";
 
 // ─── Window Storage Declaration ───────────────────────────────────────────────
 declare global {
@@ -38,29 +39,6 @@ declare global {
 type StatusKey = "new" | "letter_sent" | "waiting" | "resolved" | "denied";
 type LetterStatus = "draft" | "sent" | "printed";
 
-interface Letter {
-  id: string;
-  title: string;
-  text: string;
-  createdAt: string;
-  status: LetterStatus;
-}
-
-interface Client {
-  id: string;
-  name: string;
-  address: string;
-  cityStateZip: string;
-  dob: string;
-  ssnLast4: string;
-  phone: string;
-  reportText: string;
-  letters: Letter[];
-  notes: string;
-  status: StatusKey;
-  createdAt: string;
-}
-
 type View = "list" | "detail" | "settings";
 
 // ─── Status Config ────────────────────────────────────────────────────────────
@@ -72,52 +50,7 @@ const STATUS_CONFIG: Record<StatusKey, { label: string; variant: string }> = {
   denied: { label: "Denied", variant: "denied" },
 };
 
-// ─── Storage Helpers ──────────────────────────────────────────────────────────
-let storageOk = false;
-
-async function initStorage(): Promise<boolean> {
-  try {
-    if (!window.storage) return false;
-    await window.storage.set("chexclear_test", "1");
-    const t = await window.storage.get("chexclear_test");
-    storageOk = !!t?.value;
-    return storageOk;
-  } catch {
-    return false;
-  }
-}
-
-async function loadClients(): Promise<Client[]> {
-  if (!storageOk) return [];
-  try {
-    const r = await window.storage!.get("chexclear_data");
-    if (!r?.value) return [];
-    const parsed = JSON.parse(r.value);
-    return parsed.map((c: Client & { letter?: string }) => ({
-      ...c,
-      letters: c.letters ?? [],
-      notes: c.notes ?? "",
-    }));
-  } catch {
-    return [];
-  }
-}
-
-async function saveClients(data: Client[]): Promise<boolean> {
-  if (!storageOk) return false;
-  try {
-    const r = await window.storage!.set("chexclear_data", JSON.stringify(data));
-    return !!r;
-  } catch {
-    return false;
-  }
-}
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function uid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-}
-
 // ─── Venice AI ────────────────────────────────────────────────────────────────
 async function callVenice(
   apiKey: string,
@@ -220,7 +153,7 @@ function ClientInitials({ name }: { name: string }) {
 interface NewClientPanelProps {
   open: boolean;
   onClose: () => void;
-  onSave: (client: Client) => void;
+  onSave: (input: ClientInput) => void;
 }
 
 function NewClientPanel({ open, onClose, onSave }: NewClientPanelProps) {
@@ -240,8 +173,7 @@ function NewClientPanel({ open, onClose, onSave }: NewClientPanelProps) {
       setErr("Client name is required.");
       return;
     }
-    const client: Client = {
-      id: uid(),
+    const input: ClientInput = {
       name: form.name.trim(),
       address: form.address,
       cityStateZip: form.cityStateZip,
@@ -249,12 +181,10 @@ function NewClientPanel({ open, onClose, onSave }: NewClientPanelProps) {
       ssnLast4: form.ssnLast4,
       phone: form.phone,
       reportText: form.reportText,
-      letters: [],
-      notes: "",
       status: "new",
       createdAt: new Date().toISOString().split("T")[0],
     };
-    onSave(client);
+    onSave(input);
     setForm({
       name: "",
       address: "",
@@ -437,47 +367,31 @@ function NewClientPanel({ open, onClose, onSave }: NewClientPanelProps) {
                         setForm((p) => ({ ...p, phone: e.target.value }))
                       }
                       id="nc-phone"
-                      placeholder="(555) 123-4567"
+                      placeholder="(713) 555-0100"
                       className="bg-input border-border text-foreground placeholder:text-muted-foreground font-mono text-sm"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label
+                      htmlFor="nc-report"
+                      className="block text-[11px] font-mono text-muted-foreground mb-1.5 tracking-wide uppercase"
+                    >
+                      ChexSystems Report
+                    </label>
+                    <Textarea
+                      value={form.reportText}
+                      onChange={(e) =>
+                        setForm((p) => ({ ...p, reportText: e.target.value }))
+                      }
+                      id="nc-report"
+                      placeholder="Paste ChexSystems report text here (optional)..."
+                      className="bg-input border-border text-foreground placeholder:text-muted-foreground font-mono text-xs min-h-[80px] resize-y"
                     />
                   </div>
                 </div>
 
-                <Separator className="bg-border" />
-
-                <div>
-                  <label
-                    htmlFor="nc-report"
-                    className="block text-[11px] font-mono text-muted-foreground mb-1.5 tracking-wide uppercase"
-                  >
-                    ChexSystems Report
-                  </label>
-                  <p className="text-[11px] font-mono text-muted-foreground mb-2 leading-relaxed">
-                    Paste the full text from the client's ChexSystems Consumer
-                    Disclosure report.
-                  </p>
-                  <Textarea
-                    value={form.reportText}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, reportText: e.target.value }))
-                    }
-                    id="nc-report"
-                    placeholder="Paste the entire ChexSystems report text here..."
-                    className="bg-input border-border text-foreground placeholder:text-muted-foreground font-mono text-xs leading-relaxed resize-y min-h-[140px]"
-                    data-ocid="new_client.textarea"
-                  />
-                </div>
-
                 {err && (
-                  <div
-                    className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-destructive/10 border border-destructive/20"
-                    data-ocid="new_client.error_state"
-                  >
-                    <AlertCircle className="w-3.5 h-3.5 text-destructive flex-shrink-0" />
-                    <span className="text-[11px] font-mono text-destructive">
-                      {err}
-                    </span>
-                  </div>
+                  <p className="text-xs font-mono text-destructive">{err}</p>
                 )}
               </div>
             </ScrollArea>
@@ -486,16 +400,15 @@ function NewClientPanel({ open, onClose, onSave }: NewClientPanelProps) {
             <div className="px-6 py-4 border-t border-border flex items-center gap-3">
               <Button
                 onClick={handleSave}
-                disabled={!form.name.trim()}
                 className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 font-head text-sm font-semibold"
                 data-ocid="new_client.submit_button"
               >
                 Save Client
               </Button>
               <Button
-                variant="outline"
                 onClick={handleClose}
-                className="flex-1 border-border text-muted-foreground hover:text-foreground"
+                variant="outline"
+                className="border-border text-muted-foreground hover:text-foreground"
                 data-ocid="new_client.cancel_button"
               >
                 Cancel
@@ -515,7 +428,9 @@ interface LettersSectionProps {
   hasReport: boolean;
   hasApiKey: boolean;
   onGenerate: () => void;
-  onLettersChange: (letters: Letter[]) => void;
+  onLetterCreate: () => void;
+  onLetterUpdate: (letter: Letter) => void;
+  onLetterDelete: (letterId: string) => void;
 }
 
 function LettersSection({
@@ -524,32 +439,13 @@ function LettersSection({
   hasReport,
   hasApiKey,
   onGenerate,
-  onLettersChange,
+  onLetterCreate,
+  onLetterUpdate,
+  onLetterDelete,
 }: LettersSectionProps) {
   const [openLetterId, setOpenLetterId] = useState<string | null>(null);
 
   const openLetter = letters.find((l) => l.id === openLetterId);
-
-  const updateLetter = (id: string, patch: Partial<Letter>) => {
-    onLettersChange(letters.map((l) => (l.id === id ? { ...l, ...patch } : l)));
-  };
-
-  const createBlank = () => {
-    const today = new Date();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
-    const yyyy = today.getFullYear();
-    const newLetter: Letter = {
-      id: uid(),
-      title: `New Letter — ${mm}/${dd}/${yyyy}`,
-      text: "",
-      createdAt: new Date().toISOString(),
-      status: "draft",
-    };
-    const next = [...letters, newLetter];
-    onLettersChange(next);
-    setOpenLetterId(newLetter.id);
-  };
 
   const letterStatusStyles: Record<LetterStatus, string> = {
     draft: "bg-muted text-muted-foreground border-transparent",
@@ -570,7 +466,7 @@ function LettersSection({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={createBlank}
+            onClick={onLetterCreate}
             className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border text-[11px] font-mono text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
             data-ocid="detail.letters.open_modal_button"
           >
@@ -633,7 +529,7 @@ function LettersSection({
                   </span>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase font-mono border ${letterStatusStyles[letter.status]}`}
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase font-mono border ${letterStatusStyles[letter.status as LetterStatus] ?? letterStatusStyles.draft}`}
                     >
                       {letter.status}
                     </span>
@@ -661,7 +557,10 @@ function LettersSection({
                           type="text"
                           value={openLetter.title}
                           onChange={(e) =>
-                            updateLetter(letter.id, { title: e.target.value })
+                            onLetterUpdate({
+                              ...openLetter,
+                              title: e.target.value,
+                            })
                           }
                           className="flex-1 min-w-0 bg-transparent border-b border-border text-sm font-mono text-foreground placeholder:text-muted-foreground outline-none focus:border-primary py-0.5"
                           data-ocid="detail.letters.input"
@@ -673,7 +572,7 @@ function LettersSection({
                                 key={s}
                                 type="button"
                                 onClick={() =>
-                                  updateLetter(letter.id, { status: s })
+                                  onLetterUpdate({ ...openLetter, status: s })
                                 }
                                 className={`px-2 py-1 rounded text-[10px] font-mono font-semibold uppercase tracking-wider border transition-all ${
                                   openLetter.status === s
@@ -699,12 +598,26 @@ function LettersSection({
                         >
                           <Copy className="w-3 h-3" /> Copy
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onLetterDelete(letter.id);
+                            setOpenLetterId(null);
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded border border-destructive/30 text-[10px] font-mono text-destructive hover:bg-destructive/10 transition-colors"
+                          data-ocid="detail.letters.delete_button"
+                        >
+                          <Trash2 className="w-3 h-3" /> Delete
+                        </button>
                       </div>
                       {/* Text editor */}
                       <Textarea
                         value={openLetter.text}
                         onChange={(e) =>
-                          updateLetter(letter.id, { text: e.target.value })
+                          onLetterUpdate({
+                            ...openLetter,
+                            text: e.target.value,
+                          })
                         }
                         placeholder="Letter text..."
                         className="bg-input border-border text-foreground font-mono text-xs leading-relaxed resize-y min-h-[240px] placeholder:text-muted-foreground"
@@ -733,15 +646,19 @@ function LettersSection({
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function ChexClear() {
+  const { actor } = useActor();
   const [view, setView] = useState<View>("list");
   const [clients, setClients] = useState<Client[]>([]);
   const [ready, setReady] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [err, setErr] = useState("");
   const [generating, setGenerating] = useState(false);
-  const [hasStorage, setHasStorage] = useState(false);
   const [showNewPanel, setShowNewPanel] = useState(false);
   const [search, setSearch] = useState("");
+
+  // Per-client detail state
+  const [activeLetters, setActiveLetters] = useState<Letter[]>([]);
+  const [activeNote, setActiveNote] = useState("");
 
   // Settings
   const [apiKey, setApiKey] = useState(
@@ -754,56 +671,246 @@ export default function ChexClear() {
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState("");
 
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const noteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const storageNoticeShown = useRef(false);
 
-  // ── Init ──
+  // ── Init: load clients from backend when actor ready ──
   useEffect(() => {
+    if (!actor) return;
     (async () => {
-      const ok = await initStorage();
-      setHasStorage(ok);
-      if (ok) {
-        const [data, sk, sm] = await Promise.all([
-          loadClients(),
-          window.storage!.get("chexclear_key").catch(() => null),
-          window.storage!.get("chexclear_model").catch(() => null),
-        ]);
+      try {
+        const data = await actor.getClients();
         setClients(data);
-        if (sk?.value) setApiKey(sk.value);
-        if (sm?.value) setModel(sm.value);
+      } catch {
+        // ignore
       }
+
+      // Load settings from window.storage or localStorage fallback
+      let settingsOk = false;
+      try {
+        if (window.storage) {
+          await window.storage.set("chexclear_test", "1");
+          const t = await window.storage.get("chexclear_test");
+          settingsOk = !!t?.value;
+        }
+      } catch {
+        settingsOk = false;
+      }
+
+      if (settingsOk) {
+        try {
+          const [sk, sm] = await Promise.all([
+            window.storage!.get("chexclear_key").catch(() => null),
+            window.storage!.get("chexclear_model").catch(() => null),
+          ]);
+          if (sk?.value) setApiKey(sk.value);
+          if (sm?.value) setModel(sm.value);
+        } catch {
+          // ignore
+        }
+      } else {
+        // Try localStorage fallback for settings
+        try {
+          const lsk = localStorage.getItem("chexclear_key");
+          const lsm = localStorage.getItem("chexclear_model");
+          if (lsk) setApiKey(lsk);
+          if (lsm) setModel(lsm);
+        } catch {
+          // ignore
+        }
+
+        // Show one-time notice about limited settings storage
+        if (!storageNoticeShown.current) {
+          const alreadyShown = localStorage.getItem(
+            "chexclear_storage_notice_shown",
+          );
+          if (!alreadyShown) {
+            storageNoticeShown.current = true;
+            localStorage.setItem("chexclear_storage_notice_shown", "1");
+            toast(
+              "Using limited storage — settings won't persist across sessions.",
+              {
+                duration: 6000,
+                icon: "⚠️",
+              },
+            );
+          }
+        }
+      }
+
       setReady(true);
     })();
-  }, []);
-
-  const persist = useCallback(async (next: Client[]) => {
-    setClients(next);
-    const ok = await saveClients(next);
-    if (ok) toast.success("Saved");
-    else toast.error("Save failed");
-  }, []);
-
-  const persistDebounced = useCallback((next: Client[]) => {
-    setClients(next);
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(async () => {
-      const ok = await saveClients(next);
-      if (ok) toast.success("Saved");
-      else toast.error("Save failed");
-    }, 600);
-  }, []);
+  }, [actor]);
 
   const active = clients.find((c) => c.id === activeId);
 
-  const updateActive = useCallback(
-    (updater: (c: Client) => Client) => {
-      const next = clients.map((c) => (c.id === activeId ? updater(c) : c));
-      persistDebounced(next);
+  // ── Open client detail ──
+  const openClient = useCallback(
+    async (clientId: string) => {
+      if (!actor) {
+        toast.error("Not connected. Please reload.");
+        return;
+      }
+      setActiveId(clientId);
+      setView("detail");
+      setErr("");
+      try {
+        const [letters, note] = await Promise.all([
+          actor.getLettersByClient(clientId),
+          actor.getNoteByClient(clientId),
+        ]);
+        setActiveLetters(letters);
+        setActiveNote(note?.text ?? "");
+      } catch {
+        toast.error("Failed to load client data.");
+      }
     },
-    [clients, activeId, persistDebounced],
+    [actor],
   );
 
+  // ── Create client ──
+  const handleNewClientSave = async (input: ClientInput) => {
+    if (!actor) {
+      toast.error("Not connected. Please reload.");
+      return;
+    }
+    try {
+      const id = await actor.createClient(input);
+      const newClient: Client = { ...input, id };
+      setClients((prev) => [newClient, ...prev]);
+      setShowNewPanel(false);
+      toast.success("Client saved");
+      await openClient(id);
+    } catch {
+      toast.error("Failed to save client.");
+    }
+  };
+
+  // ── Update client (debounced for text fields) ──
+  const updateActive = useCallback(
+    (updater: (c: Client) => Client) => {
+      if (!actor) return;
+      setClients((prev) =>
+        prev.map((c) => (c.id === activeId ? updater(c) : c)),
+      );
+      const updated = clients.find((c) => c.id === activeId);
+      if (!updated) return;
+      const next = updater(updated);
+      actor.updateClient(next).catch(() => toast.error("Failed to save."));
+    },
+    [actor, clients, activeId],
+  );
+
+  const updateActiveDebounced = useCallback(
+    (updater: (c: Client) => Client) => {
+      if (!actor) return;
+      setClients((prev) =>
+        prev.map((c) => (c.id === activeId ? updater(c) : c)),
+      );
+      if (noteTimer.current) clearTimeout(noteTimer.current);
+      noteTimer.current = setTimeout(async () => {
+        const updated = clients.find((c) => c.id === activeId);
+        if (!updated) return;
+        const next = updater(updated);
+        await actor
+          .updateClient(next)
+          .catch(() => toast.error("Failed to save."));
+      }, 600);
+    },
+    [actor, clients, activeId],
+  );
+
+  // ── Delete client ──
+  const handleDeleteClient = async () => {
+    if (!active || !actor) return;
+    if (!confirm(`Delete ${active.name}? This cannot be undone.`)) return;
+    try {
+      await actor.deleteClient(activeId!);
+      setClients((prev) => prev.filter((c) => c.id !== activeId));
+      setView("list");
+      setActiveId(null);
+      setActiveLetters([]);
+      setActiveNote("");
+    } catch {
+      toast.error("Failed to delete client.");
+    }
+  };
+
+  // ── Letter: create blank ──
+  const handleLetterCreate = async () => {
+    if (!actor || !activeId) {
+      toast.error("Not connected. Please reload.");
+      return;
+    }
+    const today = new Date();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    const yyyy = today.getFullYear();
+    const input: LetterInput = {
+      clientId: activeId,
+      title: `New Letter — ${mm}/${dd}/${yyyy}`,
+      text: "",
+      createdAt: new Date().toISOString(),
+      status: "draft",
+    };
+    try {
+      const id = await actor.createLetter(input);
+      const newLetter: Letter = { ...input, id };
+      setActiveLetters((prev) => [...prev, newLetter]);
+    } catch {
+      toast.error("Failed to create letter.");
+    }
+  };
+
+  // ── Letter: update ──
+  const handleLetterUpdate = useCallback(
+    (letter: Letter) => {
+      if (!actor) return;
+      setActiveLetters((prev) =>
+        prev.map((l) => (l.id === letter.id ? letter : l)),
+      );
+      actor
+        .updateLetter(letter)
+        .catch(() => toast.error("Failed to save letter."));
+    },
+    [actor],
+  );
+
+  // ── Letter: delete ──
+  const handleLetterDelete = useCallback(
+    async (letterId: string) => {
+      if (!actor) return;
+      try {
+        await actor.deleteLetter(letterId);
+        setActiveLetters((prev) => prev.filter((l) => l.id !== letterId));
+      } catch {
+        toast.error("Failed to delete letter.");
+      }
+    },
+    [actor],
+  );
+
+  // ── Note: update (debounced) ──
+  const handleNoteChange = useCallback(
+    (text: string) => {
+      if (!actor || !activeId) return;
+      setActiveNote(text);
+      if (noteTimer.current) clearTimeout(noteTimer.current);
+      noteTimer.current = setTimeout(async () => {
+        try {
+          await actor.upsertNote(activeId, text, new Date().toISOString());
+          toast.success("Saved");
+        } catch {
+          toast.error("Failed to save note.");
+        }
+      }, 600);
+    },
+    [actor, activeId],
+  );
+
+  // ── AI generation ──
   const doGenerate = async () => {
-    if (!active) return;
+    if (!active || !actor) return;
     if (!apiKey) {
       setErr("Set your Venice API key in Settings first.");
       return;
@@ -828,17 +935,22 @@ export default function ChexClear() {
       const dd = String(today.getDate()).padStart(2, "0");
       const yyyy = today.getFullYear();
       const dateStr = `${mm}/${dd}/${yyyy}`;
-      const newLetters: Letter[] = segments.map((text: string, i: number) => ({
-        id: uid(),
+      const inputs: LetterInput[] = segments.map((text: string, i: number) => ({
+        clientId: activeId!,
         title: `Dispute Letter ${i + 1} of ${segments.length} — ${dateStr}`,
         text,
         createdAt: new Date().toISOString(),
-        status: "draft" as LetterStatus,
+        status: "draft",
       }));
-      const next = clients.map((c) =>
-        c.id === activeId ? { ...c, letters: newLetters } : c,
+      const ids = await Promise.all(
+        inputs.map((inp) => actor.createLetter(inp)),
       );
-      await persist(next);
+      const newLetters: Letter[] = inputs.map((inp, i) => ({
+        ...inp,
+        id: ids[i],
+      }));
+      setActiveLetters(newLetters);
+      toast.success("Letters generated");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Unknown error";
       setErr(`Generation failed: ${msg}`);
@@ -846,31 +958,24 @@ export default function ChexClear() {
     setGenerating(false);
   };
 
-  const handleNewClientSave = async (client: Client) => {
-    const next = [client, ...clients];
-    await persist(next);
-    setActiveId(client.id);
-    setShowNewPanel(false);
-    setView("detail");
-    setErr("");
-  };
-
-  const handleDeleteClient = async () => {
-    if (!active) return;
-    if (!confirm(`Delete ${active.name}? This cannot be undone.`)) return;
-    const next = clients.filter((c) => c.id !== activeId);
-    await persist(next);
-    setView("list");
-    setActiveId(null);
-  };
-
+  // ── Settings save ──
   const saveSettings = async () => {
     try {
+      let saved = false;
       if (window.storage) {
-        await Promise.all([
-          window.storage.set("chexclear_key", apiKey),
-          window.storage.set("chexclear_model", model),
-        ]);
+        try {
+          await Promise.all([
+            window.storage.set("chexclear_key", apiKey),
+            window.storage.set("chexclear_model", model),
+          ]);
+          saved = true;
+        } catch {
+          // fall through to localStorage
+        }
+      }
+      if (!saved) {
+        localStorage.setItem("chexclear_key", apiKey);
+        localStorage.setItem("chexclear_model", model);
       }
       toast.success("Settings saved");
     } catch {
@@ -998,7 +1103,7 @@ export default function ChexClear() {
                 {active.name}
               </span>
               <div className="ml-2">
-                <StatusBadge status={active.status} />
+                <StatusBadge status={active.status as StatusKey} />
               </div>
             </>
           ) : (
@@ -1036,20 +1141,6 @@ export default function ChexClear() {
                 className="p-6"
                 data-ocid="clients.page"
               >
-                {/* No-storage warning */}
-                {!hasStorage && clients.length > 0 && (
-                  <div
-                    className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-destructive/10 border border-destructive/20 mb-4"
-                    data-ocid="clients.error_state"
-                  >
-                    <AlertCircle className="w-3.5 h-3.5 text-destructive flex-shrink-0" />
-                    <span className="text-[11px] font-mono text-destructive">
-                      Session only — data won't persist after closing. Use
-                      Export to back up.
-                    </span>
-                  </div>
-                )}
-
                 {/* Search */}
                 <div className="relative mb-4">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
@@ -1091,7 +1182,7 @@ export default function ChexClear() {
                         "Status",
                         "Location",
                         "Created",
-                        "Letter",
+                        "Letters",
                       ].map((h) => (
                         <div
                           key={h}
@@ -1109,11 +1200,7 @@ export default function ChexClear() {
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           transition={{ delay: i * 0.03 }}
-                          onClick={() => {
-                            setActiveId(c.id);
-                            setView("detail");
-                            setErr("");
-                          }}
+                          onClick={() => openClient(c.id)}
                           className="grid grid-cols-[2fr_1fr_1fr_1fr_80px] gap-4 px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors group"
                           data-ocid={`clients.item.${i + 1}`}
                         >
@@ -1124,7 +1211,7 @@ export default function ChexClear() {
                             </span>
                           </div>
                           <div className="flex items-center">
-                            <StatusBadge status={c.status} />
+                            <StatusBadge status={c.status as StatusKey} />
                           </div>
                           <div className="flex items-center">
                             <span className="text-xs font-mono text-muted-foreground truncate">
@@ -1137,16 +1224,9 @@ export default function ChexClear() {
                             </span>
                           </div>
                           <div className="flex items-center">
-                            {c.letters && c.letters.length > 0 ? (
-                              <span className="flex items-center gap-1 text-[10px] font-mono text-success">
-                                <CheckCircle2 className="w-3 h-3" />{" "}
-                                {c.letters.length}
-                              </span>
-                            ) : (
-                              <span className="text-[10px] font-mono text-muted-foreground/50">
-                                —
-                              </span>
-                            )}
+                            <span className="text-[10px] font-mono text-muted-foreground/50">
+                              —
+                            </span>
                           </div>
                         </motion.div>
                       ))}
@@ -1232,14 +1312,37 @@ export default function ChexClear() {
                       />
                       <Button
                         disabled={!importText.trim()}
-                        onClick={() => {
+                        onClick={async () => {
+                          if (!actor) {
+                            toast.error("Not connected. Please reload.");
+                            return;
+                          }
                           try {
                             const p = JSON.parse(importText);
                             if (!Array.isArray(p))
                               throw new Error("Not an array");
-                            persist(p);
+                            // Import clients to backend
+                            for (const c of p) {
+                              const input: ClientInput = {
+                                name: c.name || "",
+                                address: c.address || "",
+                                cityStateZip: c.cityStateZip || "",
+                                dob: c.dob || "",
+                                ssnLast4: c.ssnLast4 || "",
+                                phone: c.phone || "",
+                                reportText: c.reportText || "",
+                                status: c.status || "new",
+                                createdAt:
+                                  c.createdAt ||
+                                  new Date().toISOString().split("T")[0],
+                              };
+                              await actor.createClient(input);
+                            }
+                            const updated = await actor.getClients();
+                            setClients(updated);
                             setImportText("");
                             setShowImport(false);
+                            toast.success("Import complete");
                           } catch (e: unknown) {
                             const msg =
                               e instanceof Error ? e.message : "Parse error";
@@ -1390,7 +1493,7 @@ export default function ChexClear() {
                   <Textarea
                     value={active.reportText}
                     onChange={(e) =>
-                      updateActive((c) => ({
+                      updateActiveDebounced((c) => ({
                         ...c,
                         reportText: e.target.value,
                       }))
@@ -1403,14 +1506,14 @@ export default function ChexClear() {
 
                 {/* Letters Section */}
                 <LettersSection
-                  letters={active.letters ?? []}
+                  letters={activeLetters}
                   generating={generating}
                   hasReport={!!active.reportText}
                   hasApiKey={!!apiKey}
                   onGenerate={doGenerate}
-                  onLettersChange={(letters) =>
-                    updateActive((c) => ({ ...c, letters }))
-                  }
+                  onLetterCreate={handleLetterCreate}
+                  onLetterUpdate={handleLetterUpdate}
+                  onLetterDelete={handleLetterDelete}
                 />
 
                 {/* Notes Section */}
@@ -1419,10 +1522,8 @@ export default function ChexClear() {
                     Notes
                   </p>
                   <Textarea
-                    value={active.notes ?? ""}
-                    onChange={(e) =>
-                      updateActive((c) => ({ ...c, notes: e.target.value }))
-                    }
+                    value={activeNote}
+                    onChange={(e) => handleNoteChange(e.target.value)}
                     placeholder="Add notes about this client..."
                     className="bg-input border-border text-foreground font-mono text-xs leading-relaxed resize-y min-h-[100px] placeholder:text-muted-foreground"
                     data-ocid="detail.notes.textarea"

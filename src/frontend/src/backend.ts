@@ -89,10 +89,207 @@ export class ExternalBlob {
         return this;
     }
 }
-export interface backendInterface {
+export interface LetterInput {
+    status: string;
+    title: string;
+    clientId: string;
+    createdAt: string;
+    text: string;
 }
+export interface ClientInput {
+    dob: string;
+    status: string;
+    name: string;
+    createdAt: string;
+    cityStateZip: string;
+    ssnLast4: string;
+    reportText: string;
+    address: string;
+    phone: string;
+}
+export interface Letter {
+    id: string;
+    status: string;
+    title: string;
+    clientId: string;
+    createdAt: string;
+    text: string;
+}
+export interface Client {
+    id: string;
+    dob: string;
+    status: string;
+    name: string;
+    createdAt: string;
+    cityStateZip: string;
+    ssnLast4: string;
+    reportText: string;
+    address: string;
+    phone: string;
+}
+export interface Note {
+    clientId: string;
+    text: string;
+    updatedAt: string;
+}
+export interface backendInterface {
+    createClient(input: ClientInput): Promise<string>;
+    createLetter(input: LetterInput): Promise<string>;
+    deleteClient(clientId: string): Promise<boolean>;
+    deleteLetter(letterId: string): Promise<boolean>;
+    getClients(): Promise<Array<Client>>;
+    getLettersByClient(clientId: string): Promise<Array<Letter>>;
+    getNoteByClient(clientId: string): Promise<Note | null>;
+    updateClient(client: Client): Promise<boolean>;
+    updateLetter(letter: Letter): Promise<boolean>;
+    upsertNote(clientId: string, text: string, updatedAt: string): Promise<boolean>;
+}
+import type { Note as _Note } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
+    async createClient(arg0: ClientInput): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.createClient(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.createClient(arg0);
+            return result;
+        }
+    }
+    async createLetter(arg0: LetterInput): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.createLetter(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.createLetter(arg0);
+            return result;
+        }
+    }
+    async deleteClient(arg0: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteClient(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteClient(arg0);
+            return result;
+        }
+    }
+    async deleteLetter(arg0: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteLetter(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteLetter(arg0);
+            return result;
+        }
+    }
+    async getClients(): Promise<Array<Client>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getClients();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getClients();
+            return result;
+        }
+    }
+    async getLettersByClient(arg0: string): Promise<Array<Letter>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getLettersByClient(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getLettersByClient(arg0);
+            return result;
+        }
+    }
+    async getNoteByClient(arg0: string): Promise<Note | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getNoteByClient(arg0);
+                return from_candid_opt_n1(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getNoteByClient(arg0);
+            return from_candid_opt_n1(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async updateClient(arg0: Client): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateClient(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateClient(arg0);
+            return result;
+        }
+    }
+    async updateLetter(arg0: Letter): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateLetter(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateLetter(arg0);
+            return result;
+        }
+    }
+    async upsertNote(arg0: string, arg1: string, arg2: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.upsertNote(arg0, arg1, arg2);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.upsertNote(arg0, arg1, arg2);
+            return result;
+        }
+    }
+}
+function from_candid_opt_n1(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_Note]): Note | null {
+    return value.length === 0 ? null : value[0];
 }
 export interface CreateActorOptions {
     agent?: Agent;

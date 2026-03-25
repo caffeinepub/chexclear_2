@@ -8,10 +8,122 @@
 
 import { IDL } from '@icp-sdk/core/candid';
 
-export const idlService = IDL.Service({});
+export const ClientInput = IDL.Record({
+  'dob' : IDL.Text,
+  'status' : IDL.Text,
+  'name' : IDL.Text,
+  'createdAt' : IDL.Text,
+  'cityStateZip' : IDL.Text,
+  'ssnLast4' : IDL.Text,
+  'reportText' : IDL.Text,
+  'address' : IDL.Text,
+  'phone' : IDL.Text,
+});
+export const LetterInput = IDL.Record({
+  'status' : IDL.Text,
+  'title' : IDL.Text,
+  'clientId' : IDL.Text,
+  'createdAt' : IDL.Text,
+  'text' : IDL.Text,
+});
+export const Client = IDL.Record({
+  'id' : IDL.Text,
+  'dob' : IDL.Text,
+  'status' : IDL.Text,
+  'name' : IDL.Text,
+  'createdAt' : IDL.Text,
+  'cityStateZip' : IDL.Text,
+  'ssnLast4' : IDL.Text,
+  'reportText' : IDL.Text,
+  'address' : IDL.Text,
+  'phone' : IDL.Text,
+});
+export const Letter = IDL.Record({
+  'id' : IDL.Text,
+  'status' : IDL.Text,
+  'title' : IDL.Text,
+  'clientId' : IDL.Text,
+  'createdAt' : IDL.Text,
+  'text' : IDL.Text,
+});
+export const Note = IDL.Record({
+  'clientId' : IDL.Text,
+  'text' : IDL.Text,
+  'updatedAt' : IDL.Text,
+});
+
+export const idlService = IDL.Service({
+  'createClient' : IDL.Func([ClientInput], [IDL.Text], []),
+  'createLetter' : IDL.Func([LetterInput], [IDL.Text], []),
+  'deleteClient' : IDL.Func([IDL.Text], [IDL.Bool], []),
+  'deleteLetter' : IDL.Func([IDL.Text], [IDL.Bool], []),
+  'getClients' : IDL.Func([], [IDL.Vec(Client)], ['query']),
+  'getLettersByClient' : IDL.Func([IDL.Text], [IDL.Vec(Letter)], ['query']),
+  'getNoteByClient' : IDL.Func([IDL.Text], [IDL.Opt(Note)], ['query']),
+  'updateClient' : IDL.Func([Client], [IDL.Bool], []),
+  'updateLetter' : IDL.Func([Letter], [IDL.Bool], []),
+  'upsertNote' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [IDL.Bool], []),
+});
 
 export const idlInitArgs = [];
 
-export const idlFactory = ({ IDL }) => { return IDL.Service({}); };
+export const idlFactory = ({ IDL }) => {
+  const ClientInput = IDL.Record({
+    'dob' : IDL.Text,
+    'status' : IDL.Text,
+    'name' : IDL.Text,
+    'createdAt' : IDL.Text,
+    'cityStateZip' : IDL.Text,
+    'ssnLast4' : IDL.Text,
+    'reportText' : IDL.Text,
+    'address' : IDL.Text,
+    'phone' : IDL.Text,
+  });
+  const LetterInput = IDL.Record({
+    'status' : IDL.Text,
+    'title' : IDL.Text,
+    'clientId' : IDL.Text,
+    'createdAt' : IDL.Text,
+    'text' : IDL.Text,
+  });
+  const Client = IDL.Record({
+    'id' : IDL.Text,
+    'dob' : IDL.Text,
+    'status' : IDL.Text,
+    'name' : IDL.Text,
+    'createdAt' : IDL.Text,
+    'cityStateZip' : IDL.Text,
+    'ssnLast4' : IDL.Text,
+    'reportText' : IDL.Text,
+    'address' : IDL.Text,
+    'phone' : IDL.Text,
+  });
+  const Letter = IDL.Record({
+    'id' : IDL.Text,
+    'status' : IDL.Text,
+    'title' : IDL.Text,
+    'clientId' : IDL.Text,
+    'createdAt' : IDL.Text,
+    'text' : IDL.Text,
+  });
+  const Note = IDL.Record({
+    'clientId' : IDL.Text,
+    'text' : IDL.Text,
+    'updatedAt' : IDL.Text,
+  });
+  
+  return IDL.Service({
+    'createClient' : IDL.Func([ClientInput], [IDL.Text], []),
+    'createLetter' : IDL.Func([LetterInput], [IDL.Text], []),
+    'deleteClient' : IDL.Func([IDL.Text], [IDL.Bool], []),
+    'deleteLetter' : IDL.Func([IDL.Text], [IDL.Bool], []),
+    'getClients' : IDL.Func([], [IDL.Vec(Client)], ['query']),
+    'getLettersByClient' : IDL.Func([IDL.Text], [IDL.Vec(Letter)], ['query']),
+    'getNoteByClient' : IDL.Func([IDL.Text], [IDL.Opt(Note)], ['query']),
+    'updateClient' : IDL.Func([Client], [IDL.Bool], []),
+    'updateLetter' : IDL.Func([Letter], [IDL.Bool], []),
+    'upsertNote' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [IDL.Bool], []),
+  });
+};
 
 export const init = ({ IDL }) => { return []; };
